@@ -1,7 +1,7 @@
 schemaVersion: "1.2"
 endpoints:
-  - name: creative-pool
-    displayName: Creative Pool
+  - name: webhook-service
+    displayName: Webhook Service
     service:
       basePath: /
       port: 8080
