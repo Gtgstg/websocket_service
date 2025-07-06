@@ -81,7 +81,8 @@ def _symbol_token_map() -> dict:
     import json
 
     default_map = {
-        "BTCUSDT": "12345",  # TODO: replace with actual token
+        "BTCUSDT": "12345", # TODO: replace with actual token
+        "BANKNIFTY": "99926009",
     }
 
     env_val = os.getenv("SYMBOL_MAP")
