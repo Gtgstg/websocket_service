@@ -1,0 +1,73 @@
+openapi: 3.0.3
+info:
+  title: TradingView Webhook → SmartAPI bridge
+  version: 1.0.0
+  description: |
+    Simple FastAPI service that receives TradingView webhook alerts and places
+    orders via AngelOne SmartAPI.
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+paths:
+  /webhook:
+    post:
+      summary: TradingView alert handler
+      operationId: createOrderFromAlert
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Alert'
+      responses:
+        "200":
+          description: Order accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+        "400":
+          description: Invalid alert message or unmapped ticker
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Order placement failed due to SmartAPI error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  schemas:
+    Alert:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          description: Raw alert text from TradingView.
+          example: "BTC Scalping v9.29: order BUY @ 1 filled on BTCUSDT. New strategy position is 1"
+    OrderResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: success
+        order_id:
+          type: string
+          example: "22120100012345"
+        ticker:
+          type: string
+          example: BTCUSDT
+        action:
+          type: string
+          enum: [BUY, SELL]
+          example: BUY
+    ErrorResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+          example: "Ticker BTCUSDT not mapped to SmartAPI token"
