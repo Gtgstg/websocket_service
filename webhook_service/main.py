@@ -35,18 +35,16 @@ app = FastAPI(title="TradingView Webhook → SmartAPI bridge")
 
 class Alert(BaseModel):
     """Payload schema for TradingView webhook."""
-    # TradingView sends the alert text inside the JSON field named `message`
-    # if you check the "Send as JSON" checkbox. If user is not sending JSON
-    # and just raw text, set contentType in webhook to 'text/plain' and
-    # adjust logic accordingly.
+    version: str
+    description: str
+    parameters: list[float | int]
+    order_action: str
+    order_contracts: str | int | float  # Can be string, integer, or float
+    ticker: str
+    position_size: str | int | float  # Can be string, integer, or float
     message: str
 
-# Compile once at import time
-_ALERT_REGEX = re.compile(
-    r"order\s+(BUY|SELL|buy|sell)\s+@\s+([\d\.]+)\s+filled\s+on\s+([A-Z0-9_\-]+).*?position\s+is\s+([\-\d\.]+)",
-    re.IGNORECASE,
-)
-
+# Action mapping for case-insensitive comparison
 _ACTION_MAP = {"buy": "BUY", "sell": "SELL"}
 
 # ---- SmartAPI helpers ------------------------------------------------------
@@ -98,15 +96,32 @@ def _symbol_token_map() -> dict:
 
 @app.post("/webhook", summary="TradingView alert handler")
 async def tradingview_webhook(alert: Alert):
-    """Receive TradingView alert and place SmartAPI order."""
-    match = _ALERT_REGEX.search(alert.message)
-    if not match:
-        raise HTTPException(status_code=400, detail="Alert text could not be parsed")
-
-    action_str, contracts_str, ticker, position_size_str = match.groups()
-    action = _ACTION_MAP[action_str.lower()]
-    quantity = float(contracts_str)
-    position_size = float(position_size_str)  # Currently unused, but captured for completeness
+    """Receive TradingView alert and place SmartAPI order.
+    
+    Expected JSON format:
+    {
+        "version": "Strategy Name vX.XX",
+        "description": "Strategy description",
+        "parameters": [...],
+        "order_action": "BUY" or "SELL",
+        "order_contracts": "1.0",
+        "ticker": "SYMBOL",
+        "position_size": "1.0",
+        "message": "Human readable message"
+    }
+    """
+    try:
+        action = _ACTION_MAP[alert.order_action.lower()]
+        # Convert to float first to handle both string and numeric types, then to int for quantity
+        quantity = int(float(alert.order_contracts))
+        ticker = alert.ticker
+        position_size = float(alert.position_size)  # Keep as float for position size
+        
+        # Print the received JSON for debugging
+        print(f"Received webhook payload: {alert.dict()}")
+        print(f"Converted order details - Action: {action}, Quantity: {quantity}, Ticker: {ticker}")
+    except (ValueError, KeyError, TypeError) as e:
+        raise HTTPException(status_code=400, detail=f"Invalid order data: {str(e)}")
 
     # Resolve SmartAPI symbol token
     token_map = _symbol_token_map()
