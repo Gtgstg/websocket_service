@@ -7,6 +7,8 @@ import pandas as pd
 from typing import Union, Optional
 import warnings
 
+# Note: No matplotlib or plotting code in this file. No changes needed for plotting imports.
+
 class HistoricalVolatility:
     """
     Historical Volatility Indicator for Algorithmic Trading

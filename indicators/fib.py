@@ -5,6 +5,8 @@ Provides classes and functions for calculating Fibonacci retracement and extensi
 import pandas as pd
 import numpy as np
 
+# Note: No matplotlib or plotting code in this file. No changes needed for plotting imports.
+
 class FibonacciCalculator:
     def __init__(self):
         """

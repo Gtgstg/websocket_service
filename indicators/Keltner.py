@@ -5,7 +5,6 @@ Provides classes and functions for calculating Keltner Channels and related sign
 import pandas as pd
 import numpy as np
 from typing import Tuple, Dict, List, Optional
-import matplotlib.pyplot as plt
 from dataclasses import dataclass
 from enum import Enum
 
@@ -337,6 +336,7 @@ class KeltnerTradingBot:
     
     def plot_analysis(self, df: pd.DataFrame, backtest_results: Dict) -> None:
         """Plot Keltner Channels and trading signals"""
+        import matplotlib.pyplot as plt
         
         df_with_keltner = self.strategy.keltner.calculate(df)
         signals = backtest_results['signals']

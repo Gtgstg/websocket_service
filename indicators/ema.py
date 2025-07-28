@@ -5,6 +5,8 @@ Provides classes and functions for calculating the EMA and related signals.
 import pandas as pd
 import numpy as np
 
+# Note: No matplotlib or plotting code in this file. No changes needed for plotting imports.
+
 class EMA:
     """
     Exponential Moving Average (EMA) implementation.
