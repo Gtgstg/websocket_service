@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Chart</title>
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #1e1e1e; color: white; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .chart-container { background: #2a2a2a; padding: 20px; margin: 20px 0; border-radius: 8px; }
+        .chart-wrapper { height: 400px; }
+        .debug-info { background: #333; padding: 15px; margin: 10px 0; border-radius: 5px; }
+        button { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }
+        button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Chart Debug Interface</h1>
+        
+        <div class="debug-info">
+            <h3>Debug Information:</h3>
+            <div id="debug-status">Checking chart library...</div>
+            <div id="debug-data">No data loaded</div>
+        </div>
+        
+        <div class="chart-container">
+            <h3>Chart Area</h3>
+            <div class="chart-wrapper" id="chart"></div>
+        </div>
+        
+        <div style="margin: 20px 0;">
+            <button onclick="testLibrary()">Test Library</button>
+            <button onclick="testChart()">Test Chart</button>
+            <button onclick="loadTestData()">Load Test Data</button>
+            <button onclick="loadServerData()">Load Server Data</button>
+        </div>
+        
+        <div class="debug-info">
+            <h3>Console Log:</h3>
+            <div id="console-log" style="font-family: monospace; font-size: 12px; max-height: 200px; overflow-y: auto;"></div>
+        </div>
+    </div>
+
+    <script>
+        let chart;
+        let debugStatus = document.getElementById('debug-status');
+        let debugData = document.getElementById('debug-data');
+        let consoleLog = document.getElementById('console-log');
+        
+        function log(message) {
+            console.log(message);
+            consoleLog.innerHTML += message + '<br>';
+            consoleLog.scrollTop = consoleLog.scrollHeight;
+        }
+        
+        function updateStatus(message) {
+            debugStatus.innerHTML = message;
+            log('Status: ' + message);
+        }
+        
+        function updateData(message) {
+            debugData.innerHTML = message;
+            log('Data: ' + message);
+        }
+        
+        // Test if lightweight-charts library is loaded
+        function testLibrary() {
+            log('Testing lightweight-charts library...');
+            
+            if (typeof LightweightCharts === 'undefined') {
+                updateStatus('❌ LightweightCharts library not loaded');
+                log('ERROR: LightweightCharts is undefined');
+                return false;
+            } else {
+                updateStatus('✅ LightweightCharts library loaded successfully');
+                log('SUCCESS: LightweightCharts version: ' + (LightweightCharts.version || 'unknown'));
+                return true;
+            }
+        }
+        
+        // Test basic chart creation
+        function testChart() {
+            log('Testing chart creation...');
+            
+            if (!testLibrary()) {
+                log('ERROR: Cannot create chart without library');
+                return;
+            }
+            
+            try {
+                const chartContainer = document.getElementById('chart');
+                log('Chart container found: ' + (chartContainer ? 'YES' : 'NO'));
+                log('Container dimensions: ' + chartContainer.offsetWidth + 'x' + chartContainer.offsetHeight);
+                
+                chart = LightweightCharts.createChart(chartContainer, {
+                    width: chartContainer.offsetWidth,
+                    height: 400,
+                    layout: { background: { color: '#2a2a2a' }, textColor: '#d1d4dc' },
+                    grid: { vertLines: { color: '#404040' }, horzLines: { color: '#404040' } },
+                    crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+                    rightPriceScale: { borderColor: '#404040' },
+                    timeScale: { borderColor: '#404040', timeVisible: true, secondsVisible: false }
+                });
+                
+                updateStatus('✅ Chart created successfully');
+                log('SUCCESS: Chart object created');
+                
+            } catch (error) {
+                updateStatus('❌ Chart creation failed');
+                log('ERROR: ' + error.message);
+                console.error(error);
+            }
+        }
+        
+        // Load test data
+        function loadTestData() {
+            log('Loading test data...');
+            
+            if (!chart) {
+                log('ERROR: Chart not initialized. Run "Test Chart" first.');
+                return;
+            }
+            
+            try {
+                // Create sample candlestick data
+                const testData = [];
+                const basePrice = 45000;
+                let currentTime = Date.now() - (30 * 24 * 60 * 60 * 1000); // 30 days ago
+                
+                for (let i = 0; i < 30; i++) {
+                    const time = currentTime + (i * 24 * 60 * 60 * 1000);
+                    const change = (Math.random() - 0.5) * 200;
+                    const open = basePrice + change;
+                    const close = open + (Math.random() - 0.5) * 100;
+                    const high = Math.max(open, close) + Math.random() * 50;
+                    const low = Math.min(open, close) - Math.random() * 50;
+                    
+                    testData.push({
+                        time: Math.floor(time / 1000),
+                        open: open,
+                        high: high,
+                        low: low,
+                        close: close
+                    });
+                }
+                
+                // Add candlestick series
+                const candlestickSeries = chart.addCandlestickSeries({
+                    upColor: '#26a69a',
+                    downColor: '#ef5350',
+                    borderVisible: false,
+                    wickUpColor: '#26a69a',
+                    wickDownColor: '#ef5350'
+                });
+                
+                candlestickSeries.setData(testData);
+                
+                updateData('✅ Test data loaded: ' + testData.length + ' candlesticks');
+                log('SUCCESS: Test data loaded and displayed');
+                
+            } catch (error) {
+                updateData('❌ Test data loading failed');
+                log('ERROR: ' + error.message);
+                console.error(error);
+            }
+        }
+        
+        // Load data from server
+        async function loadServerData() {
+            log('Loading data from server...');
+            
+            if (!chart) {
+                log('ERROR: Chart not initialized. Run "Test Chart" first.');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/data?period=30');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                log('Server response: ' + JSON.stringify(data).substring(0, 200) + '...');
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                // Add candlestick series
+                const candlestickSeries = chart.addCandlestickSeries({
+                    upColor: '#26a69a',
+                    downColor: '#ef5350',
+                    borderVisible: false,
+                    wickUpColor: '#26a69a',
+                    wickDownColor: '#ef5350'
+                });
+                
+                candlestickSeries.setData(data.candlesticks);
+                
+                updateData('✅ Server data loaded: ' + data.candlesticks.length + ' candlesticks');
+                log('SUCCESS: Server data loaded and displayed');
+                
+            } catch (error) {
+                updateData('❌ Server data loading failed');
+                log('ERROR: ' + error.message);
+                console.error(error);
+            }
+        }
+        
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            log('Page loaded, checking library...');
+            testLibrary();
+        });
+    </script>
+</body>
+</html>
+

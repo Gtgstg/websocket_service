@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Chart with Indicators</title>
+    <script>
+        // Library loading with fallback
+        let LightweightCharts = null;
+        let libraryLoaded = false;
+        
+        function loadLibrary() {
+            return new Promise((resolve, reject) => {
+                // Try to load from CDN
+                const script = document.createElement('script');
+                script.src = 'https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js';
+                script.onload = () => {
+                    if (typeof window.LightweightCharts !== 'undefined') {
+                        LightweightCharts = window.LightweightCharts;
+                        libraryLoaded = true;
+                        console.log('LightweightCharts library loaded successfully');
+                        resolve();
+                    } else {
+                        reject(new Error('Library loaded but LightweightCharts object not found'));
+                    }
+                };
+                script.onerror = () => {
+                    reject(new Error('Failed to load library from CDN'));
+                };
+                document.head.appendChild(script);
+            });
+        }
+        
+        // Auto-load library when page loads
+        loadLibrary().catch(error => {
+            console.error('Failed to load library:', error);
+            document.getElementById('indicators').innerHTML = 
+                `<div class="error">Failed to load chart library: ${error.message}</div>`;
+        });
+    </script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #1e1e1e;
+            color: #ffffff;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .chart-container {
+            background-color: #2a2a2a;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .chart-wrapper {
+            position: relative;
+            height: 600px;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .control-group label {
+            font-size: 12px;
+            color: #cccccc;
+        }
+        
+        .control-group select,
+        .control-group input {
+            padding: 8px 12px;
+            border: 1px solid #444;
+            border-radius: 4px;
+            background-color: #333;
+            color: #ffffff;
+            font-size: 14px;
+        }
+        
+        .control-group button {
+            padding: 8px 16px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .control-group button:hover {
+            background-color: #0056b3;
+        }
+        
+        .indicator-panel {
+            background-color: #2a2a2a;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .indicator-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        
+        .indicator-item {
+            background-color: #333;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #007bff;
+        }
+        
+        .indicator-item h4 {
+            margin: 0 0 10px 0;
+            color: #007bff;
+        }
+        
+        .indicator-value {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .indicator-change {
+            font-size: 12px;
+            color: #28a745;
+        }
+        
+        .indicator-change.negative {
+            color: #dc3545;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #cccccc;
+        }
+        
+        .error {
+            background-color: #dc3545;
+            color: white;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📈 Trading Chart with Technical Indicators</h1>
+            <p>Interactive candlestick chart powered by Lightweight Charts</p>
+        </div>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label for="symbol">Symbol</label>
+                <select id="symbol">
+                    <option value="BANKNIFTY">BANKNIFTY</option>
+                    <option value="NIFTY">NIFTY</option>
+                    <option value="SENSEX">SENSEX</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label for="timeframe">Timeframe</label>
+                <select id="timeframe">
+                    <option value="1m">1 Minute</option>
+                    <option value="5m">5 Minutes</option>
+                    <option value="15m">15 Minutes</option>
+                    <option value="1h">1 Hour</option>
+                    <option value="1d">1 Day</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label for="period">Period</label>
+                <input type="number" id="period" value="100" min="50" max="1000">
+            </div>
+            
+            <div class="control-group">
+                <label>&nbsp;</label>
+                <button onclick="loadData()">Load Data</button>
+            </div>
+        </div>
+        
+        <div class="chart-container">
+            <div class="chart-wrapper" id="chart"></div>
+        </div>
+        
+        <div class="indicator-panel">
+            <h3>Technical Indicators</h3>
+            <div class="indicator-grid" id="indicators">
+                <div class="loading">Loading indicators...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let chart;
+        let candlestickSeries;
+        let volumeSeries;
+        let indicatorSeries = {};
+        let currentData = [];
+        
+        // Initialize chart
+        async function initChart() {
+            // Wait for library to load
+            if (!libraryLoaded || !LightweightCharts) {
+                console.log('Waiting for library to load...');
+                await loadLibrary();
+            }
+            
+            console.log('Initializing chart with library:', LightweightCharts);
+            
+            try {
+                chart = LightweightCharts.createChart(document.getElementById('chart'), {
+                    width: document.getElementById('chart').clientWidth,
+                    height: 600,
+                    layout: {
+                        background: { color: '#2a2a2a' },
+                        textColor: '#d1d4dc',
+                    },
+                    grid: {
+                        vertLines: { color: '#404040' },
+                        horzLines: { color: '#404040' },
+                    },
+                    crosshair: {
+                        mode: LightweightCharts.CrosshairMode.Normal,
+                    },
+                    rightPriceScale: {
+                        borderColor: '#404040',
+                    },
+                    timeScale: {
+                        borderColor: '#404040',
+                        timeVisible: true,
+                        secondsVisible: false,
+                    },
+                });
+                
+                console.log('Chart object created:', chart);
+                
+                // Create candlestick series
+                candlestickSeries = chart.addCandlestickSeries({
+                    upColor: '#26a69a',
+                    downColor: '#ef5350',
+                    borderVisible: false,
+                    wickUpColor: '#26a69a',
+                    wickDownColor: '#ef5350',
+                });
+                
+                console.log('Candlestick series created:', candlestickSeries);
+                
+                // Create volume series
+                volumeSeries = chart.addHistogramSeries({
+                    color: '#26a69a',
+                    priceFormat: {
+                        type: 'volume',
+                    },
+                    priceScaleId: '',
+                    scaleMargins: {
+                        top: 0.8,
+                        bottom: 0,
+                    },
+                });
+                
+                console.log('Volume series created:', volumeSeries);
+                
+                // Handle window resize
+                window.addEventListener('resize', () => {
+                    chart.applyOptions({
+                        width: document.getElementById('chart').clientWidth,
+                    });
+                });
+                
+                console.log('Chart initialization completed successfully');
+                
+            } catch (error) {
+                console.error('Error in initChart:', error);
+                throw error;
+            }
+        }
+        
+        // Load data from Python backend API
+        async function loadData() {
+            console.log('loadData function called');
+            
+            // Check if chart is initialized
+            if (!chart || !candlestickSeries) {
+                console.error('Chart not initialized. Initializing now...');
+                try {
+                    initChart();
+                } catch (error) {
+                    console.error('Failed to initialize chart:', error);
+                    document.getElementById('indicators').innerHTML = 
+                        `<div class="error">Chart initialization failed: ${error.message}</div>`;
+                    return;
+                }
+            }
+            
+            const symbol = document.getElementById('symbol').value;
+            const timeframe = document.getElementById('timeframe').value;
+            const period = parseInt(document.getElementById('period').value);
+            
+            console.log(`Loading data for ${symbol}, ${timeframe}, period: ${period}`);
+            
+            // Show loading state
+            document.getElementById('indicators').innerHTML = '<div class="loading">Loading data...</div>';
+            
+            try {
+                // Fetch data from Python backend
+                console.log('Fetching data from API...');
+                const response = await fetch(`/api/data?period=${period}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                console.log('Data received:', data);
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                // Convert data to chart format
+                const chartData = data.candlesticks.map(d => ({
+                    time: d.time,
+                    open: d.open,
+                    high: d.high,
+                    low: d.low,
+                    close: d.close
+                }));
+                
+                console.log('Chart data prepared:', chartData.length, 'candlesticks');
+                
+                currentData = chartData;
+                updateChart(chartData);
+                
+                // Update indicators panel with real data
+                updateIndicatorsFromAPI(data.indicators, data.candlesticks[data.candlesticks.length - 1]);
+                
+            } catch (error) {
+                console.error('Error loading data:', error);
+                document.getElementById('indicators').innerHTML = 
+                    `<div class="error">Error loading data: ${error.message}</div>`;
+                
+                // Fallback to sample data
+                console.log('Falling back to sample data...');
+                generateSampleData(period).then(data => {
+                    currentData = data;
+                    updateChart(data);
+                    calculateIndicators(data);
+                });
+            }
+        }
+        
+        // Generate sample OHLCV data (replace with your actual data)
+        function generateSampleData(period) {
+            return new Promise((resolve) => {
+                const data = [];
+                let basePrice = 45000; // Starting price for BANKNIFTY
+                let currentTime = Date.now() - (period * 24 * 60 * 60 * 1000); // Start from period days ago
+                
+                for (let i = 0; i < period; i++) {
+                    const time = currentTime + (i * 24 * 60 * 60 * 1000);
+                    
+                    // Generate realistic price movements
+                    const change = (Math.random() - 0.5) * 200; // Random change between -100 and +100
+                    const open = basePrice + change;
+                    const high = open + Math.random() * 100;
+                    const low = open - Math.random() * 100;
+                    const close = open + (Math.random() - 0.5) * 50;
+                    const volume = Math.floor(Math.random() * 1000000) + 100000;
+                    
+                    data.push({
+                        time: Math.floor(time / 1000),
+                        open: open,
+                        high: high,
+                        low: low,
+                        close: close,
+                        volume: volume
+                    });
+                    
+                    basePrice = close;
+                }
+                
+                resolve(data);
+            });
+        }
+        
+        // Update chart with new data
+        function updateChart(data) {
+            console.log('updateChart called with data length:', data.length);
+            
+            if (!candlestickSeries || !volumeSeries) {
+                console.error('Chart series not initialized');
+                return;
+            }
+            
+            try {
+                candlestickSeries.setData(data);
+                console.log('Candlestick data set successfully');
+                
+                // Handle volume data (some data might not have volume)
+                const volumeData = data.map(d => ({
+                    time: d.time,
+                    value: d.volume || 1000000, // Default volume if missing
+                    color: d.close >= d.open ? '#26a69a' : '#ef5350'
+                }));
+                
+                volumeSeries.setData(volumeData);
+                console.log('Volume data set successfully');
+                
+            } catch (error) {
+                console.error('Error updating chart:', error);
+                throw error;
+            }
+        }
+        
+        // Calculate technical indicators
+        function calculateIndicators(data) {
+            if (data.length === 0) return;
+            
+            const indicators = {};
+            
+            // Calculate SMA 20
+            indicators.sma20 = calculateSMA(data, 20);
+            
+            // Calculate SMA 50
+            indicators.sma50 = calculateSMA(data, 50);
+            
+            // Calculate RSI
+            indicators.rsi = calculateRSI(data, 14);
+            
+            // Calculate MACD
+            const macdData = calculateMACD(data);
+            indicators.macd = macdData.macd;
+            indicators.signal = macdData.signal;
+            indicators.histogram = macdData.histogram;
+            
+            // Calculate Bollinger Bands
+            const bbData = calculateBollingerBands(data, 20, 2);
+            indicators.upperBB = bbData.upper;
+            indicators.lowerBB = bbData.lower;
+            indicators.middleBB = bbData.middle;
+            
+            // Add indicators to chart
+            addIndicatorsToChart(indicators);
+            
+            // Update indicator panel
+            updateIndicatorPanel(indicators, data[data.length - 1]);
+        }
+        
+        // Calculate Simple Moving Average
+        function calculateSMA(data, period) {
+            const sma = [];
+            for (let i = 0; i < data.length; i++) {
+                if (i < period - 1) {
+                    sma.push({ time: data[i].time, value: null });
+                } else {
+                    const sum = data.slice(i - period + 1, i + 1).reduce((acc, d) => acc + d.close, 0);
+                    sma.push({ time: data[i].time, value: sum / period });
+                }
+            }
+            return sma;
+        }
+        
+        // Calculate RSI
+        function calculateRSI(data, period) {
+            const rsi = [];
+            let gains = [];
+            let losses = [];
+            
+            for (let i = 1; i < data.length; i++) {
+                const change = data[i].close - data[i - 1].close;
+                gains.push(change > 0 ? change : 0);
+                losses.push(change < 0 ? -change : 0);
+                
+                if (i >= period) {
+                    const avgGain = gains.slice(-period).reduce((a, b) => a + b, 0) / period;
+                    const avgLoss = losses.slice(-period).reduce((a, b) => a + b, 0) / period;
+                    const rs = avgGain / avgLoss;
+                    const rsiValue = 100 - (100 / (1 + rs));
+                    rsi.push({ time: data[i].time, value: rsiValue });
+                } else {
+                    rsi.push({ time: data[i].time, value: null });
+                }
+            }
+            return rsi;
+        }
+        
+        // Calculate MACD
+        function calculateMACD(data, fastPeriod = 12, slowPeriod = 26, signalPeriod = 9) {
+            const ema12 = calculateEMA(data, fastPeriod);
+            const ema26 = calculateEMA(data, slowPeriod);
+            
+            const macd = ema12.map((item, i) => ({
+                time: item.time,
+                value: item.value - ema26[i].value
+            }));
+            
+            const signal = calculateEMA(macd, signalPeriod);
+            const histogram = macd.map((item, i) => ({
+                time: item.time,
+                value: item.value - signal[i].value
+            }));
+            
+            return { macd, signal, histogram };
+        }
+        
+        // Calculate Exponential Moving Average
+        function calculateEMA(data, period) {
+            const ema = [];
+            const multiplier = 2 / (period + 1);
+            
+            for (let i = 0; i < data.length; i++) {
+                if (i === 0) {
+                    ema.push({ time: data[i].time, value: data[i].close });
+                } else {
+                    const value = (data[i].close * multiplier) + (ema[i - 1].value * (1 - multiplier));
+                    ema.push({ time: data[i].time, value: value });
+                }
+            }
+            return ema;
+        }
+        
+        // Calculate Bollinger Bands
+        function calculateBollingerBands(data, period, stdDev) {
+            const middle = calculateSMA(data, period);
+            const upper = [];
+            const lower = [];
+            
+            for (let i = 0; i < data.length; i++) {
+                if (i < period - 1) {
+                    upper.push({ time: data[i].time, value: null });
+                    lower.push({ time: data[i].time, value: null });
+                } else {
+                    const slice = data.slice(i - period + 1, i + 1);
+                    const mean = slice.reduce((acc, d) => acc + d.close, 0) / period;
+                    const variance = slice.reduce((acc, d) => acc + Math.pow(d.close - mean, 2), 0) / period;
+                    const standardDeviation = Math.sqrt(variance);
+                    
+                    upper.push({ time: data[i].time, value: mean + (standardDeviation * stdDev) });
+                    lower.push({ time: data[i].time, value: mean - (standardDeviation * stdDev) });
+                }
+            }
+            
+            return { upper, lower, middle };
+        }
+        
+        // Add indicators to chart
+        function addIndicatorsToChart(indicators) {
+            // Remove existing indicator series
+            Object.values(indicatorSeries).forEach(series => {
+                chart.removeSeries(series);
+            });
+            indicatorSeries = {};
+            
+            // Add SMA lines
+            if (indicators.sma20) {
+                indicatorSeries.sma20 = chart.addLineSeries({
+                    color: '#ff9800',
+                    lineWidth: 1,
+                    title: 'SMA 20'
+                });
+                indicatorSeries.sma20.setData(indicators.sma20);
+            }
+            
+            if (indicators.sma50) {
+                indicatorSeries.sma50 = chart.addLineSeries({
+                    color: '#2196f3',
+                    lineWidth: 1,
+                    title: 'SMA 50'
+                });
+                indicatorSeries.sma50.setData(indicators.sma50);
+            }
+            
+            // Add Bollinger Bands
+            if (indicators.upperBB) {
+                indicatorSeries.upperBB = chart.addLineSeries({
+                    color: '#9c27b0',
+                    lineWidth: 1,
+                    title: 'Upper BB',
+                    lineStyle: LightweightCharts.LineStyle.Dashed
+                });
+                indicatorSeries.upperBB.setData(indicators.upperBB);
+            }
+            
+            if (indicators.lowerBB) {
+                indicatorSeries.lowerBB = chart.addLineSeries({
+                    color: '#9c27b0',
+                    lineWidth: 1,
+                    title: 'Lower BB',
+                    lineStyle: LightweightCharts.LineStyle.Dashed
+                });
+                indicatorSeries.lowerBB.setData(indicators.lowerBB);
+            }
+        }
+        
+        // Update indicator panel from API data
+        function updateIndicatorsFromAPI(apiIndicators, lastData) {
+            const container = document.getElementById('indicators');
+            let html = '';
+            
+            // Price indicators
+            if (apiIndicators.SMA_20 && apiIndicators.SMA_20.length > 0) {
+                const sma20Value = apiIndicators.SMA_20[apiIndicators.SMA_20.length - 1].value;
+                const change = ((lastData.close - sma20Value) / sma20Value * 100).toFixed(2);
+                const changeClass = change >= 0 ? '' : 'negative';
+                
+                html += `
+                    <div class="indicator-item">
+                        <h4>SMA 20</h4>
+                        <div class="indicator-value">${sma20Value.toFixed(2)}</div>
+                        <div class="indicator-change ${changeClass}">${change >= 0 ? '+' : ''}${change}%</div>
+                    </div>
+                `;
+            }
+            
+            if (apiIndicators.SMA_50 && apiIndicators.SMA_50.length > 0) {
+                const sma50Value = apiIndicators.SMA_50[apiIndicators.SMA_50.length - 1].value;
+                const change = ((lastData.close - sma50Value) / sma50Value * 100).toFixed(2);
+                const changeClass = change >= 0 ? '' : 'negative';
+                
+                html += `
+                    <div class="indicator-item">
+                        <h4>SMA 50</h4>
+                        <div class="indicator-value">${sma50Value.toFixed(2)}</div>
+                        <div class="indicator-change ${changeClass}">${change >= 0 ? '+' : ''}${change}%</div>
+                    </div>
+                `;
+            }
+            
+            // RSI
+            if (apiIndicators.RSI && apiIndicators.RSI.length > 0) {
+                const rsiValue = apiIndicators.RSI[apiIndicators.RSI.length - 1].value;
+                let rsiStatus = 'Neutral';
+                let rsiClass = '';
+                
+                if (rsiValue > 70) {
+                    rsiStatus = 'Overbought';
+                    rsiClass = 'negative';
+                } else if (rsiValue < 30) {
+                    rsiStatus = 'Oversold';
+                    rsiClass = '';
+                }
+                
+                html += `
+                    <div class="indicator-item">
+                        <h4>RSI (14)</h4>
+                        <div class="indicator-value">${rsiValue.toFixed(2)}</div>
+                        <div class="indicator-change ${rsiClass}">${rsiStatus}</div>
+                    </div>
+                `;
+            }
+            
+            // MACD
+            if (apiIndicators.MACD && apiIndicators.MACD.length > 0) {
+                const macdValue = apiIndicators.MACD[apiIndicators.MACD.length - 1].value;
+                const signalValue = apiIndicators.MACD_Signal ? apiIndicators.MACD_Signal[apiIndicators.MACD_Signal.length - 1].value : 0;
+                const histogramValue = apiIndicators.MACD_Histogram ? apiIndicators.MACD_Histogram[apiIndicators.MACD_Histogram.length - 1].value : 0;
+                
+                html += `
+                    <div class="indicator-item">
+                        <h4>MACD</h4>
+                        <div class="indicator-value">${macdValue.toFixed(4)}</div>
+                        <div class="indicator-change">Signal: ${signalValue.toFixed(4)}</div>
+                        <div class="indicator-change ${histogramValue >= 0 ? '' : 'negative'}">Hist: ${histogramValue.toFixed(4)}</div>
+                    </div>
+                `;
+            }
+            
+            // TRIX (if available)
+            if (apiIndicators.TRIX && apiIndicators.TRIX.length > 0) {
+                const trixValue = apiIndicators.TRIX[apiIndicators.TRIX.length - 1].value;
+                const trixSignalValue = apiIndicators.TRIX_Signal ? apiIndicators.TRIX_Signal[apiIndicators.TRIX_Signal.length - 1].value : 0;
+                
+                html += `
+                    <div class="indicator-item">
+                        <h4>TRIX</h4>
+                        <div class="indicator-value">${trixValue.toFixed(4)}</div>
+                        <div class="indicator-change">Signal: ${trixSignalValue.toFixed(4)}</div>
+                    </div>
+                `;
+            }
+            
+            // Current Price
+            html += `
+                <div class="indicator-item">
+                    <h4>Current Price</h4>
+                    <div class="indicator-value">${lastData.close.toFixed(2)}</div>
+                    <div class="indicator-change ${lastData.close >= lastData.open ? '' : 'negative'}">
+                        ${lastData.close >= lastData.open ? '▲' : '▼'} ${Math.abs(lastData.close - lastData.open).toFixed(2)}
+                    </div>
+                </div>
+            `;
+            
+            container.innerHTML = html;
+        }
+        
+        // Update indicator panel (for sample data fallback)
+        function updateIndicatorPanel(indicators, lastData) {
+            const container = document.getElementById('indicators');
+            let html = '';
+            
+            // Price indicators
+            if (indicators.sma20 && indicators.sma20[indicators.sma20.length - 1]) {
+                const sma20Value = indicators.sma20[indicators.sma20.length - 1].value;
+                const change = ((lastData.close - sma20Value) / sma20Value * 100).toFixed(2);
+                const changeClass = change >= 0 ? '' : 'negative';
+                
+                html += `
+                    <div class="indicator-item">
+                        <h4>SMA 20</h4>
+                        <div class="indicator-value">${sma20Value.toFixed(2)}</div>
+                        <div class="indicator-change ${changeClass}">${change >= 0 ? '+' : ''}${change}%</div>
+                    </div>
+                `;
+            }
+            
+            if (indicators.sma50 && indicators.sma50[indicators.sma50.length - 1]) {
+                const sma50Value = indicators.sma50[indicators.sma50.length - 1].value;
+                const change = ((lastData.close - sma50Value) / sma50Value * 100).toFixed(2);
+                const changeClass = change >= 0 ? '' : 'negative';
+                
+                html += `
+                    <div class="indicator-item">
+                        <h4>SMA 50</h4>
+                        <div class="indicator-value">${sma50Value.toFixed(2)}</div>
+                        <div class="indicator-change ${changeClass}">${change >= 0 ? '+' : ''}${change}%</div>
+                    </div>
+                `;
+            }
+            
+            // RSI
+            if (indicators.rsi && indicators.rsi[indicators.rsi.length - 1]) {
+                const rsiValue = indicators.rsi[indicators.rsi.length - 1].value;
+                let rsiStatus = 'Neutral';
+                let rsiClass = '';
+                
+                if (rsiValue > 70) {
+                    rsiStatus = 'Overbought';
+                    rsiClass = 'negative';
+                } else if (rsiValue < 30) {
+                    rsiStatus = 'Oversold';
+                    rsiClass = '';
+                }
+                
+                html += `
+                    <div class="indicator-item">
+                        <h4>RSI (14)</h4>
+                        <div class="indicator-value">${rsiValue.toFixed(2)}</div>
+                        <div class="indicator-change ${rsiClass}">${rsiStatus}</div>
+                        <div class="indicator-change ${rsiClass}">${rsiStatus}</div>
+                    </div>
+                `;
+            }
+            
+            // MACD
+            if (indicators.macd && indicators.macd[indicators.macd.length - 1]) {
+                const macdValue = indicators.macd[indicators.macd.length - 1].value;
+                const signalValue = indicators.signal[indicators.signal.length - 1].value;
+                const histogramValue = indicators.histogram[indicators.histogram.length - 1].value;
+                
+                html += `
+                    <div class="indicator-item">
+                        <h4>MACD</h4>
+                        <div class="indicator-value">${macdValue.toFixed(4)}</div>
+                        <div class="indicator-change">Signal: ${signalValue.toFixed(4)}</div>
+                        <div class="indicator-change ${histogramValue >= 0 ? '' : 'negative'}">Hist: ${histogramValue.toFixed(4)}</div>
+                    </div>
+                `;
+            }
+            
+            // Current Price
+            html += `
+                <div class="indicator-item">
+                    <h4>Current Price</h4>
+                    <div class="indicator-value">${lastData.close.toFixed(2)}</div>
+                    <div class="indicator-change ${lastData.close >= lastData.open ? '' : 'negative'}">
+                        ${lastData.close >= lastData.open ? '▲' : '▼'} ${Math.abs(lastData.close - lastData.open).toFixed(2)}
+                    </div>
+                </div>
+            `;
+            
+            container.innerHTML = html;
+        }
+        
+        // Initialize chart when page loads
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log('DOM loaded, initializing chart...');
+            try {
+                await initChart();
+                console.log('Chart initialized, waiting for user to load data...');
+                // Don't auto-load data - let user click button
+            } catch (error) {
+                console.error('Error initializing chart:', error);
+                document.getElementById('indicators').innerHTML = 
+                    `<div class="error">Error initializing chart: ${error.message}</div>`;
+            }
+        });
+    </script>
+</body>
+</html>
