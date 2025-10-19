@@ -1,3 +1,75 @@
+import argparse
+
+from pattern_detection.realtime import run_realtime
+from pattern_detection.backtesting import run_backtest
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Stock pattern detection with YOLOv8 - Real-time detection and backtesting")
+    parser.add_argument("--mode", choices=["realtime", "backtest"], default="realtime", 
+                       help="Mode: 'realtime' for live detection, 'backtest' for accuracy testing")
+    
+    # Common arguments
+    parser.add_argument("--model", default="foduucom/stockmarket-pattern-detection-yolov8", 
+                       help="Hugging Face repo id or local path to model")
+    parser.add_argument("--historical-data", default="BankNiftyFutures.csv", 
+                       help="Path to historical CSV data for analysis")
+    
+    # Real-time detection arguments
+    parser.add_argument("--top", type=int, default=0, help="Screen capture top pixel")
+    parser.add_argument("--left", type=int, default=683, help="Screen capture left pixel")
+    parser.add_argument("--width", type=int, default=683, help="Screen capture width")
+    parser.add_argument("--height", type=int, default=768, help="Screen capture height")
+    parser.add_argument("--interval", type=float, default=60.0, help="Seconds between inferences")
+    parser.add_argument("--fps", type=float, default=0.5, help="Output video FPS")
+    parser.add_argument("--conf", type=float, default=0.25, help="Confidence threshold")
+    
+    # Backtesting arguments
+    parser.add_argument("--test-periods", type=int, default=50, 
+                       help="Number of periods to test in backtest mode")
+    parser.add_argument("--period-length", type=int, default=100, 
+                       help="Length of each test period in backtest mode")
+    parser.add_argument("--overlap", type=int, default=20, 
+                       help="Overlap between consecutive test periods")
+    parser.add_argument("--backtest-conf", type=float, default=0.25, 
+                       help="Confidence threshold for backtesting")
+    
+    args = parser.parse_args()
+
+    if args.mode == "realtime":
+        print("🚀 Starting real-time pattern detection...")
+        run_realtime(
+            model_repo_or_path=args.model,
+            top=args.top,
+            left=args.left,
+            width=args.width,
+            height=args.height,
+            interval=args.interval,
+            fps=args.fps,
+            conf=args.conf,
+            historical_data_path=args.historical_data,
+        )
+    elif args.mode == "backtest":
+        print("📊 Starting pattern detection backtesting...")
+        backtester = run_backtest(
+            csv_path=args.historical_data,
+            model_path=args.model,
+            test_periods=args.test_periods,
+            period_length=args.period_length,
+            overlap=args.overlap,
+            confidence_threshold=args.backtest_conf
+        )
+        
+        # Print results
+        from pattern_detection.backtesting import PatternBacktester
+        temp_backtester = PatternBacktester(args.historical_data, args.model)
+        temp_backtester.results = backtester
+        temp_backtester.print_backtest_summary()
+        temp_backtester.save_detailed_report()
+
+
+if __name__ == "__main__":
+    main()
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 import os
